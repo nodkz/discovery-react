@@ -1,0 +1,12 @@
+node_modules/
+
+/.idea/
+/.vscode/
+/.cache/
+/.nyc_output/
+/cjs/
+/lib/
+/cjs-test/
+/coverage/
+/src/version.js
+.DS_Store

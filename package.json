@@ -1,0 +1,30 @@
+{
+  "name": "discovery-react",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "dev": "concurrently -k npm:demo npm:build-watch",
+    "demo": "cd demo && npm run start",
+    "build": "tsc",
+    "build-watch": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@discoveryjs/discovery": "^1.0.0-beta.70",
+    "@types/react": "^18.0.27",
+    "concurrently": "^7.6.0",
+    "react": "^18.2.0",
+    "typescript": "^4.9.4"
+  },
+  "peerDependencies": {
+    "@discoveryjs/discovery": "*",
+    "react": ">=16.8.0"
+  },
+  "workspaces": [
+    "demo"
+  ]
+}
