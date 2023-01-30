@@ -10,17 +10,49 @@ import type { MutableRefObject } from 'react';
 import { Widget } from '@discoveryjs/discovery/dist/discovery.js';
 
 // TODO: fix when discovery will have typescript definitions
+
+type DiscoveryTemplate = {
+  view: string;
+  content: any;
+};
+
 interface DiscoveryWidget {
   disposeDom: Function;
-  setData(dta: any): void;
+  setData(data: any, context: any): void;
+  apply(extension: ExtendDiscoveryFn | Record<string, ExtendDiscoveryFn>): void;
+  setPrepare(fn: PrepareFn): void;
+  page: {
+    define(name: string, content: Array<DiscoveryTemplate>): void,
+  };
 }; 
 
 export interface Props {
   data: any;
   context?: Record<string, any>;
-  containerProps?: Record<string, any>;
-  options: Record<string, any>;
+  containerProps?: React.HTMLAttributes<HTMLDivElement>;
+  options: DiscoveryOptions;
 }
+
+type PrepareFn = (data: any, helpers: PrepareHelpers) => unknown;
+type ExtendDiscoveryFn = (discovery: DiscoveryWidget) => void;
+
+type DiscoveryMarker = any;
+type PrepareHelpers = {
+  defineObjectMarker: (title: string, opts: Record<string, any>) => DiscoveryMarker,
+  addQueryHelpers: (helpers: Record<string, (current: unknown, ...args: any) => unknown>) => void,
+  addValueAnnotation: (expression: string) => void,
+  query: (expression: string, data: unknown) => unknown
+};
+
+export type DiscoveryOptions = {
+  inspector?: boolean;
+  darkmode?: "auto" | string,
+  darkmodePersistent?: boolean,
+  styles?: Array<{ type: 'link', href: string }>,
+  apply?: ExtendDiscoveryFn | Record<string, ExtendDiscoveryFn>,
+  prepare?: PrepareFn;
+  [key: string]: any,
+};
 
 export interface RefMethods {
   discovery: DiscoveryWidget | undefined;
@@ -42,36 +74,39 @@ const DiscoveryWidgetReact = forwardRef<RefMethods, Props>(
 
     // Create Discovery widget or update existed
     useIsomorphicLayoutEffect(() => {
-      const discoveryContext = props.context || {
+      const context = props.context || {
         name: 'Discovery report',
         settings: {},
         createdAt: new Date().toISOString()
-    };
+      };
 
-      if (!discoveryRef.current) {
+      let discovery = discoveryRef.current;
+
+      if (!discovery) {
         const opts = {
           container: containerRef.current,
           inspector: true,
           darkmode: "auto",
+          darkmodePersistent: false,
           styles: [{ type: "link", href: "https://cdn.jsdelivr.net/npm/@discoveryjs/discovery@1.0.0-beta.70/dist/discovery.css" }],
           ...props.options,
         };
 
-        console.log("Create discovery");
-        const discovery = new Widget(opts);
-        discovery.setData(props.data, discoveryContext );
+        discovery = new Widget(opts) as DiscoveryWidget;
         discoveryRef.current = discovery;
-      }  else {
-        const discovery = discoveryRef.current;
-        discovery.setData(props.data, discoveryContext);
-        // TODO: put here options updates for existed discovery instance
+      } 
+      
+      if (props.options.apply) {
+        discovery.apply(props.options.apply);
       }
+      if (props.options.prepare) {
+        discovery.setPrepare(props.options.prepare);
+      }
+      discovery.setData(props.data, context);
     }); 
 
     // Destroy DiscoveryJS instance if unmounting.
     useIsomorphicLayoutEffect(() => {
-      console.log('unmount discovery');
-
       return () => {
         if (discoveryRef.current) {
           discoveryRef.current.disposeDom?.();
@@ -80,7 +115,7 @@ const DiscoveryWidgetReact = forwardRef<RefMethods, Props>(
       };
     }, []);
 
-    // Provide discovery methods via ref in the parent component 
+    // Provide discovery methods via ref to the parent component 
     useImperativeHandle(
       ref,
       () => ({
@@ -92,11 +127,19 @@ const DiscoveryWidgetReact = forwardRef<RefMethods, Props>(
       []
     );
 
-    console.log("render discovery container");
-
     // Create container for the DiscoveryJS
     return <div { ...props.containerProps } ref={ containerRef } />;
   }
 );
 
-export default memo(DiscoveryWidgetReact);
+export default memo(DiscoveryWidgetReact, (prevProps, nextProps) => {
+  if (
+    JSON.stringify(prevProps.containerProps) !== JSON.stringify(nextProps.containerProps) ||
+    prevProps.data !== nextProps.data || 
+    prevProps.context !== nextProps.context ||
+    prevProps.options !== nextProps.options 
+  ) {
+    return false;
+  }
+  return true;
+});
